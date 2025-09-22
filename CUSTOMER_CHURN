@@ -1,0 +1,139 @@
+!pip install -q numpy pandas scikit-learn xgboost matplotlib seaborn
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+from xgboost import XGBClassifier, plot_importance
+
+
+
+
+
+
+df = pd.read_csv("https://raw.githubusercontent.com/IBM/telco-customer-churn-on-icp4d/master/data/Telco-Customer-Churn.csv")
+print(df.columns)
+
+
+
+
+
+
+
+df = df.dropna()
+df = df.drop_duplicates()
+
+
+
+
+
+
+x = df.drop(["customerID","Churn"], axis=1)
+y = df["Churn"].map({"No":0, "Yes":1})
+
+
+
+
+
+
+cat_cols = x.select_dtypes(include=["object"]).columns
+
+
+
+
+
+
+x = pd.get_dummies(x, columns=cat_cols, drop_first=True)
+
+
+
+
+
+x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=4)
+
+
+
+
+
+
+model = XGBClassifier(use_label_encoder=False, eval_metric="logloss")
+model.fit(x_train, y_train)
+
+
+
+
+
+
+y_pred = model.predict(x_test)
+
+
+
+
+
+
+print("Accuracy:", accuracy_score(y_test, y_pred))
+print("\nClassification Report:\n", classification_report(y_test, y_pred))
+
+
+
+
+
+cm = confusion_matrix(y_test, y_pred)
+print("\nConfusion Matrix:\n", cm)
+
+
+
+
+
+plt.figure(figsize=(6,4))
+sns.heatmap(cm, annot=True, fmt='d', cmap="Blues",
+            xticklabels=["No Churn","Churn"],
+            yticklabels=["No Churn","Churn"])
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
+plt.title("Confusion Matrix")
+plt.show()
+
+
+
+
+
+
+plt.figure(figsize=(10,6))
+plot_importance(model, importance_type="weight", max_num_features=10)
+plt.title("Top 10 Important Features for Churn Prediction")
+plt.show()
+
+
+
+
+
+
+def MyVersion(model, x_columns, cat_cols, user_data: dict):
+    UserInput = pd.DataFrame([user_data])
+    intersecting_cols = [col for col in cat_cols if col in UserInput.columns]
+    UserDataAfterONEHOTENCODE = pd.get_dummies(UserInput, columns=intersecting_cols, drop_first=True)
+    UserDataAfterFilling = UserDataAfterONEHOTENCODE.reindex(columns=x_columns, fill_value=0)
+    prediction = model.predict(UserDataAfterFilling)[0]
+    result = "Churn" if prediction == 1 else "No Churn"
+    return result
+
+
+
+
+
+UseUserMissingIrrelevent = {
+    "gender": "Male",
+    "tenure": 5,
+    "InternetService": "DSL",
+    "Contract": "One year",
+    "MonthlyCharges": 55.0,
+    "RandomColumn": "NotNeeded"
+}
+
+
+
+
+
+print("Prediction -->", MyVersion(model, x.columns, cat_cols, UseUserMissingIrrelevent))
